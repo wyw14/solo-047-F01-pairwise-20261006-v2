@@ -34,3 +34,20 @@ func TestSnapshotAndJournalRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected journal records: %+v", records)
 	}
 }
+
+func TestTelemetryCursorRoundTrip(t *testing.T) {
+	root := t.TempDir()
+	cursors := NewTelemetryCursorStore(NewSnapshotStore(filepath.Join(root, "snapshots")), func() time.Time {
+		return time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC)
+	})
+	if _, found, err := cursors.LoadTelemetryCursor(); err != nil || found {
+		t.Fatalf("fresh cursor should be absent, found=%v err=%v", found, err)
+	}
+	if err := cursors.SaveTelemetryCursor(42); err != nil {
+		t.Fatal(err)
+	}
+	offset, found, err := cursors.LoadTelemetryCursor()
+	if err != nil || !found || offset != 42 {
+		t.Fatalf("cursor round trip mismatch: offset=%d found=%v err=%v", offset, found, err)
+	}
+}

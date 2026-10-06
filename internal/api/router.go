@@ -37,6 +37,7 @@ func NewServer(services *Services) *Server {
 		r.Post("/repairs/{id}/acceptance", server.addAcceptanceProof)
 		r.Get("/repairs/{id}/acceptance", server.getAcceptance)
 		r.Post("/repeaters/{id}/telemetry", server.ingestTelemetry)
+		r.Post("/telemetry/replay", server.replayTelemetry)
 		r.Get("/repeaters/{id}/telemetry", server.repeaterTelemetry)
 		r.Post("/repeaters/{id}/ramp", server.rampRepeater)
 		r.Post("/repeaters/{id}/reset", server.resetRepeater)

@@ -17,6 +17,12 @@ type HeartbeatSnapshot struct {
 	Sequence  uint64    `json:"sequence"`
 }
 
+// TelemetryCursor 是遥测投影的水位线：Offset 之前（含）的事件都已成功投影。
+type TelemetryCursor struct {
+	Offset    uint64    `json:"offset"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type Checkpoints struct {
 	snapshots *SnapshotStore
 }

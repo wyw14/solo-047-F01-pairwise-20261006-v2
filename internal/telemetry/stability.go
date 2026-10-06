@@ -50,12 +50,8 @@ func (w StabilityWindow) Evaluate(samples []Sample) (StabilityResult, error) {
 	return result, nil
 }
 
+// CurrentSamples 返回当前代次、序号大于 after 的已确认电流样本。
+// 已确认保证去重且连续；乱序缓冲样本与旧代次样本都不会进入稳定窗口。
 func CurrentSamples(repository *Repository, repeaterID string, after uint64) []Sample {
-	var result []Sample
-	for _, sample := range repository.History(repeaterID) {
-		if sample.Kind == KindCurrent && sample.Sequence > after {
-			result = append(result, sample)
-		}
-	}
-	return result
+	return repository.Confirmed(repeaterID, KindCurrent, after)
 }

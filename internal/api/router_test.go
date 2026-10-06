@@ -67,6 +67,8 @@ func testServer(t *testing.T) *Server {
 		Switchovers: switchover.NewSessionService(drainer, activator, ids, clock.Now, time.Second),
 		Permits:     permitService, Receipts: receipts, Acceptance: acceptance,
 		Telemetry: telemetry.NewIngestor(repository, clock.Now, projector), TelemetryRepository: repository,
+		TelemetryCursors: store.NewTelemetryCursorStore(
+			store.NewSnapshotStore(filepath.Join(t.TempDir(), "snapshots")), clock.Now),
 		Admission: incident.NewAdmissionService(telemetry.NewMuteManager(clock.Now)),
 	}
 	return NewServer(services)

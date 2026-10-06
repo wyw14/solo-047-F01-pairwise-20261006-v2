@@ -110,6 +110,7 @@ func buildServices(cfg config) (*api.Services, error) {
 		}
 	}
 	actuator := feed.NewActuator()
+	telemetryCursors := store.NewTelemetryCursorStore(snapshots, now)
 	ramps := repeater.NewRampController(actuator, telemetryRepository, telemetry.StabilityWindow{MinimumSamples: 2, MaximumSpread: 1.5, MinimumPeriod: time.Second}, checkpoints, now)
 	wetPlantTests := repair.NewTestService(mutes, ids, now, 30*time.Second)
 
@@ -118,7 +119,8 @@ func buildServices(cfg config) (*api.Services, error) {
 		Spans: map[string]*span.Span{"S3": spanS3}, Routes: map[string]*route.Route{"R-S3": routeS3},
 		Repeaters: map[string]*repeater.Repeater{"R07": repeaterR07}, Topology: topologies,
 		OTDR: otdrService, Switchovers: switchovers, Permits: permits, Receipts: receipts,
-		Acceptance: acceptance, Telemetry: ingestor, TelemetryRepository: telemetryRepository, Admission: admission,
+		Acceptance: acceptance, Telemetry: ingestor, TelemetryRepository: telemetryRepository,
+		TelemetryCursors: telemetryCursors, Admission: admission,
 		Classifier: incident.NewClassifier(), Correlator: otdr.NewCorrelator(), Health: health, Station: station,
 		WetPlantTests: wetPlantTests, Ramps: ramps, Assets: assets,
 		RepeaterHealth: healthProjector, Actuator: actuator,

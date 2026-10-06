@@ -36,6 +36,7 @@ type Services struct {
 	Acceptance          *repair.AcceptanceService
 	Telemetry           *telemetry.Ingestor
 	TelemetryRepository *telemetry.Repository
+	TelemetryCursors    telemetry.CursorStore
 	Admission           *incident.AdmissionService
 	Classifier          *incident.Classifier
 	Correlator          *otdr.Correlator
