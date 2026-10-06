@@ -23,15 +23,25 @@ func (s *Server) ingestTelemetry(writer http.ResponseWriter, request *http.Reque
 		Value: input.Value, Unit: input.Unit, Sequence: input.Sequence, Generation: input.Generation,
 		ObservedAt: s.services.Clock.Now().UTC(),
 	}
-	if err := s.services.Telemetry.Apply(request.Context(), sample); err != nil {
-		writeError(writer, http.StatusConflict, err)
-		return
-	}
-	if err := s.services.Persist("telemetry", sample.ID, sample); err != nil {
+	result, err := s.services.Telemetry.Apply(request.Context(), sample)
+	if err != nil {
 		writeError(writer, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(writer, http.StatusAccepted, sample)
+	// Duplicates and buffered out-of-order arrivals are acknowledged, not
+	// rejected. Only a genuinely novel sample is appended to the journal, so a
+	// replay of it can never re-record the same (asset, generation, sequence).
+	if result.Outcome != telemetry.OutcomeDuplicate {
+		if err := s.services.Persist("telemetry", sample.ID, sample); err != nil {
+			writeError(writer, http.StatusInternalServerError, err)
+			return
+		}
+	}
+	status := http.StatusAccepted
+	if result.Outcome == telemetry.OutcomeDuplicate {
+		status = http.StatusOK
+	}
+	writeJSON(writer, status, result)
 }
 
 func (s *Server) getRepeater(writer http.ResponseWriter, request *http.Request) {

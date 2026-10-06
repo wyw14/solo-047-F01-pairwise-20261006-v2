@@ -17,12 +17,24 @@ type IncidentSink interface {
 type HealthProjector struct {
 	mu        sync.RWMutex
 	repeaters map[string]*Repeater
+	// applied is the highest (generation, sequence) already projected per
+	// repeater. Sequences reset each generation, so the watermark is keyed by
+	// generation rather than a single counter.
+	applied   map[string]appliedMarker
 	incidents IncidentSink
 	tripAtC   float64
 }
 
+type appliedMarker struct {
+	generation uint64
+	sequence   uint64
+}
+
 func NewHealthProjector(incidents IncidentSink, tripAtC float64) *HealthProjector {
-	return &HealthProjector{repeaters: make(map[string]*Repeater), incidents: incidents, tripAtC: tripAtC}
+	return &HealthProjector{
+		repeaters: make(map[string]*Repeater), applied: make(map[string]appliedMarker),
+		incidents: incidents, tripAtC: tripAtC,
+	}
 }
 
 func (p *HealthProjector) Register(repeater *Repeater) {
@@ -37,12 +49,20 @@ func (p *HealthProjector) ApplySample(_ context.Context, sample telemetry.Sample
 	}
 	p.mu.RLock()
 	repeater := p.repeaters[sample.AssetID]
+	marker := p.applied[sample.AssetID]
 	p.mu.RUnlock()
 	if repeater == nil {
 		return nil
 	}
+	// The ingestor already delivers only confirmed, deduplicated samples in
+	// order; this guard makes replay idempotent and tolerates generation
+	// rollover where sequences restart at 1.
+	if sample.Generation < marker.generation ||
+		(sample.Generation == marker.generation && sample.Sequence <= marker.sequence) {
+		return nil
+	}
 	before := repeater.Snapshot()
-	if sample.Sequence <= before.LastSequence || sample.Generation < before.TripGeneration {
+	if sample.Generation < before.TripGeneration {
 		return nil
 	}
 	after := repeater.update(func(current *Snapshot) {
@@ -56,6 +76,9 @@ func (p *HealthProjector) ApplySample(_ context.Context, sample telemetry.Sample
 			current.Health = HealthNormal
 		}
 	})
+	p.mu.Lock()
+	p.applied[sample.AssetID] = appliedMarker{generation: sample.Generation, sequence: sample.Sequence}
+	p.mu.Unlock()
 	if before.Health != HealthTripped && after.Health == HealthTripped && p.incidents != nil {
 		return p.incidents.OpenRepeaterIncident(after.ID, after.TripGeneration)
 	}

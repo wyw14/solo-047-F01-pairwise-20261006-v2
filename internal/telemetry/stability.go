@@ -50,9 +50,17 @@ func (w StabilityWindow) Evaluate(samples []Sample) (StabilityResult, error) {
 	return result, nil
 }
 
+// CurrentSamples returns only confirmed current samples strictly after the
+// requested sequence. Samples still buffered behind a sequence gap (or from a
+// superseded generation) are excluded: the stability window must consume only
+// acknowledged, gap-free data.
 func CurrentSamples(repository *Repository, repeaterID string, after uint64) []Sample {
+	generation, ok := repository.CurrentGeneration(repeaterID)
+	if !ok {
+		return nil
+	}
 	var result []Sample
-	for _, sample := range repository.History(repeaterID) {
+	for _, sample := range repository.ConfirmedSamples(repeaterID, generation) {
 		if sample.Kind == KindCurrent && sample.Sequence > after {
 			result = append(result, sample)
 		}
